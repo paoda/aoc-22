@@ -21,94 +21,58 @@ const example =
 
 pub fn main() !void {
     part1(data);
-    try part2(data);
+    part2(data);
 }
 
 fn part1(input: []const u8) void {
     var rucksacks = split(u8, input, "\n");
-
-    var sum: u32 = 0;
+    var sum: u64 = 0;
 
     while (rucksacks.next()) |rucksack| {
-        const left_compartment = rucksack[0 .. rucksack.len / 2];
-        const right_compartment = rucksack[rucksack.len / 2 .. rucksack.len];
+        const left_compartment = bitSet(rucksack[0 .. rucksack.len / 2]);
+        const right_compartment = bitSet(rucksack[rucksack.len / 2 .. rucksack.len]);
 
-        print("Rucksack: {s}\n", .{rucksack});
-        print("left: {s}\n", .{left_compartment});
-        print("right: {s}\n", .{right_compartment});
-
-        blk: for (left_compartment) |left| {
-            for (right_compartment) |right| {
-                if (left == right) {
-                    // item is in both rucksacks, add to list
-
-                    print("Found: {s}\n", .{[_]u8{left}});
-
-                    // Convert to priorities;
-                    switch (left) {
-                        'a'...'z' => sum += left - 96,
-                        'A'...'Z' => sum += left - 38,
-                        else => unreachable,
-                    }
-
-                    break :blk;
-                }
-            }
-        }
-
-        print("Continuing...\n", .{});
+        const overlapping = left_compartment & right_compartment;
+        sum += if (overlapping != 0) std.math.log2_int(u64, overlapping) else 0;
     }
 
     print("Part 1: {}\n", .{sum});
 }
 
-fn part2(input: []const u8) !void {
-    var it = split(u8, input, "\n");
-
-    var sum: u32 = 0;
-
-    var rucksacks = std.ArrayList([]const u8).init(std.heap.page_allocator);
-    while (it.next()) |rucksack| try rucksacks.append(rucksack);
-    defer rucksacks.deinit();
+fn part2(input: []const u8) void {
+    var rucksacks = split(u8, input, "\n");
+    var previous_bitset: u64 = 0;
+    var sum: u64 = 0;
 
     var i: u32 = 0;
-    while (i < rucksacks.items.len) : (i += 3) {
-        if (i + 2 >= rucksacks.items.len) continue;
+    while (rucksacks.next()) |rucksack| : (i += 1) {
+        const bitset = bitSet(rucksack);
 
-        const left_rucksack = rucksacks.items[i];
-
-        const middle_rucksack = rucksacks.items[i + 1];
-        const right_rucksack = rucksacks.items[i + 2];
-
-        blk: for (left_rucksack) |left| {
-            for (middle_rucksack) |middle| {
-                for (right_rucksack) |right| {
-                    if (left == middle and middle == right) {
-                        // We've found the bage
-
-                        print("Found: {s}\n", .{[_]u8{left}});
-
-                        // Convert to priorities;
-                        switch (left) {
-                            'a'...'z' => sum += left - 96,
-                            'A'...'Z' => sum += left - 38,
-                            else => unreachable,
-                        }
-
-                        break :blk;
-                    }
-                }
-            }
+        if (i % 3 == 0) {
+            sum += if (previous_bitset != 0) std.math.log2_int(u64, previous_bitset) else 0;
+            previous_bitset = bitset;
+        } else {
+            previous_bitset &= bitset;
         }
     }
 
     print("Part 2: {}\n", .{sum});
 }
 
-const Context = struct {};
+fn bitSet(compartment: []const u8) u64 {
+    var result: u64 = 0;
 
-fn lessThan(_: Context, left: u8, right: u8) bool {
-    return left < right;
+    for (compartment) |char| {
+        const shift_amt = switch (char) {
+            'a'...'z' => char - 96,
+            'A'...'Z' => char - 38,
+            else => unreachable,
+        };
+
+        result |= @as(u64, 1) << @intCast(u6, shift_amt);
+    }
+
+    return result;
 }
 
 // Useful stdlib functions
